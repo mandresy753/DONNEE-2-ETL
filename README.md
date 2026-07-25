@@ -12,9 +12,8 @@ scripts/
   transform/   nettoyage, validation, écriture du CSV propre
   load/        chargement dans le data warehouse (dim_date, dim_location, fact_air_quality_hourly)
 data/
-  raw/         fichiers JSON bruts en attente de traitement
-  processed/   fichiers JSON bruts déjà traités (archivés par transform.py)
-  clean/       CSV nettoyé, prêt à charger
+  raw/         data lake : tous les JSON bruts, jamais déplacés ni supprimés
+  clean/       aqi_clean.csv, l'intégralité de l'historique nettoyé
 sql/
   create_dw.sql  schéma du data warehouse
 .github/workflows/
@@ -47,9 +46,13 @@ API. Chaque lecture horaire est éclatée en un fichier JSON individuel, au
 même format que l'extraction live, pour que `transform.py` n'ait pas à
 distinguer les deux sources.
 
-`transform.py` archive les fichiers `data/raw/` traités avec succès vers
-`data/processed/` : chaque exécution ne retraite donc que les nouveaux
-fichiers, même après un gros backfill initial.
+`data/raw/` est le data lake : `transform.py` ne déplace ni ne supprime
+jamais aucun fichier qui s'y trouve. À chaque run, il relit tout `data/raw/`
+et reconstruit `data/clean/aqi_clean.csv` avec l'intégralité de l'historique
+nettoyé. `load.py` fait un upsert (`ON CONFLICT ... DO UPDATE`), donc
+recharger tout l'historique à chaque run est sans risque — juste un peu plus
+de calcul, largement absorbable à l'échelle de ce projet (5 villes, lecture
+horaire).
 
 ## GitHub Actions
 
@@ -60,16 +63,14 @@ Ajouter deux secrets dans **Settings > Secrets and variables > Actions** :
 - `backfill.yml` se lance manuellement depuis l'onglet Actions (bouton
   "Run workflow"), avec un paramètre optionnel `months` (3 par défaut).
 
-Les deux workflows committent `data/raw/`, `data/processed/` et
-`data/clean/aqi_clean.csv` dans le repo juste après l'étape `transform`
-(avant `load`), avec le message `[skip ci]` pour ne pas redéclencher de
-workflow. Comme `transform.py` écrase `aqi_clean.csv` avec uniquement les
-nouvelles lignes de chaque run (voir plus haut), son contenu reflète
-toujours le dernier lot traité — l'historique complet reste consultable via
-`git log`. Ça implique un commit automatique par exécution (donc environ un
-par heure), et un repo qui grossit avec le temps puisque chaque fichier JSON
-brut (`data/raw/`, archivé ensuite dans `data/processed/`) est versionné
-individuellement — à surveiller si le clone devient volumineux.
+Les deux workflows committent `data/raw/` et `data/clean/aqi_clean.csv` dans
+le repo juste après l'étape `transform` (avant `load`), avec le message
+`[skip ci]` pour ne pas redéclencher de workflow. `aqi_clean.csv` contient
+l'intégralité de l'historique nettoyé à chaque commit (pas juste le dernier
+lot). Ça implique un commit automatique par exécution (donc environ un par
+heure), et un repo qui grossit avec le temps puisque chaque fichier JSON
+brut est versionné individuellement dans `data/raw/` — à surveiller si le
+clone devient volumineux.
 
 Note : les workflows planifiés (`schedule`) de GitHub Actions peuvent être
 retardés en cas de forte charge sur la plateforme, et sont automatiquement

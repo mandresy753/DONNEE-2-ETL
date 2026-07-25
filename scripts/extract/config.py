@@ -7,8 +7,13 @@ load_dotenv()
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 CITIES_FILE = PROJECT_ROOT / "data" / "cities.json"
+
+# data/raw/ est le data lake : tout ce qui y est écrit y reste en permanence,
+# rien n'est jamais déplacé ni supprimé.
 RAW_DIR = PROJECT_ROOT / "data" / "raw"
-ARCHIVE_DIR = PROJECT_ROOT / "data" / "processed"
+
+# data/clean/aqi_clean.csv contient l'intégralité de l'historique nettoyé,
+# reconstruit à chaque run à partir de data/raw/.
 CLEAN_DIR = PROJECT_ROOT / "data" / "clean"
 
 # Endpoint "current" (utilisé par extract.py, extraction horaire en direct)

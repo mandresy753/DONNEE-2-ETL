@@ -35,7 +35,6 @@ dmypy.json
 data/clean/*
 !data/clean/.gitkeep
 !data/clean/aqi_clean.csv
-!data/processed/.gitkeep
 logs/
 *.log
 *.tmp
