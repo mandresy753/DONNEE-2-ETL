@@ -1,10 +1,9 @@
 def extract_row(data: dict):
-
     entry = (data.get("list") or [{}])[0]
 
     main = entry.get("main", {})
     components = entry.get("components", {})
-    coordinates = data.get("coordinates",{})
+    coordinates = data.get("coordinates", {})
 
     return {
         "city": data.get("city"),

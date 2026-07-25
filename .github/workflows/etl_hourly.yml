@@ -1,0 +1,38 @@
+name: ETL Horaire - Qualité de l'air
+
+on:
+  schedule:
+    # Toutes les heures, à la 7e minute
+    - cron: "7 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  etl:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout du dépôt
+        uses: actions/checkout@v4
+
+      - name: Configuration de Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Installation des dépendances
+        run: pip install -r requirements.txt
+
+      - name: Extraction (extract)
+        env:
+          API_KEY: ${{ secrets.API_KEY }}
+        run: python -m scripts.extract.extract
+
+      - name: Transformation (transform)
+        run: python -m scripts.transform.transform
+
+      - name: Chargement (load)
+        env:
+          NEON_DB_URL: ${{ secrets.NEON_DB_URL }}
+        run: python -m scripts.load.load

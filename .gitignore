@@ -32,8 +32,12 @@ dmypy.json
 # ============================================
 # DATA AND LOGS
 # ============================================
-data/raw/
-data/clean/
+data/raw/*
+data/clean/*
+data/processed/*
+!data/raw/.gitkeep
+!data/clean/.gitkeep
+!data/processed/.gitkeep
 logs/
 *.log
 *.tmp
