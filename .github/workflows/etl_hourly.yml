@@ -1,9 +1,10 @@
 name: ETL Horaire - Qualité de l'air
 
 on:
-  schedule:
-    # Toutes les heures, à la 7e minute
-    - cron: "7 * * * *"
+  # Déclenchement à la demande uniquement : bouton "Run workflow" dans
+  # l'onglet Actions, ou appel API (ex. via un cron externe type
+  # cron-job.org) toutes les heures. Plus de "schedule" GitHub natif,
+  # dont le scheduler interne peut retarder ou sauter des runs.
   workflow_dispatch: {}
 
 permissions:
