@@ -60,6 +60,17 @@ Ajouter deux secrets dans **Settings > Secrets and variables > Actions** :
 - `backfill.yml` se lance manuellement depuis l'onglet Actions (bouton
   "Run workflow"), avec un paramètre optionnel `months` (3 par défaut).
 
+Les deux workflows committent `data/raw/`, `data/processed/` et
+`data/clean/aqi_clean.csv` dans le repo juste après l'étape `transform`
+(avant `load`), avec le message `[skip ci]` pour ne pas redéclencher de
+workflow. Comme `transform.py` écrase `aqi_clean.csv` avec uniquement les
+nouvelles lignes de chaque run (voir plus haut), son contenu reflète
+toujours le dernier lot traité — l'historique complet reste consultable via
+`git log`. Ça implique un commit automatique par exécution (donc environ un
+par heure), et un repo qui grossit avec le temps puisque chaque fichier JSON
+brut (`data/raw/`, archivé ensuite dans `data/processed/`) est versionné
+individuellement — à surveiller si le clone devient volumineux.
+
 Note : les workflows planifiés (`schedule`) de GitHub Actions peuvent être
 retardés en cas de forte charge sur la plateforme, et sont automatiquement
 désactivés si le dépôt reste inactif (aucun commit) pendant 60 jours — il

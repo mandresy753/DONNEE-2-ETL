@@ -6,6 +6,9 @@ on:
     - cron: "7 * * * *"
   workflow_dispatch: {}
 
+permissions:
+  contents: write
+
 jobs:
   etl:
     runs-on: ubuntu-latest
@@ -31,6 +34,18 @@ jobs:
 
       - name: Transformation (transform)
         run: python -m scripts.transform.transform
+
+      - name: Sauvegarder le CSV dans le repo
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/raw data/processed data/clean/aqi_clean.csv
+          if git diff --cached --quiet; then
+            echo "Aucun changement à committer"
+          else
+            git commit -m "chore: update aqi_clean.csv [skip ci]"
+            git push
+          fi
 
       - name: Chargement (load)
         env:
