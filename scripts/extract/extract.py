@@ -53,8 +53,8 @@ HISTORY_API_URL = (
 )
 
 
-AQI_API_KEY = os.getenv(
-    "AQI_API_KEY"
+API_KEY = os.getenv(
+    "API_KEY"
 )
 
 
@@ -121,17 +121,17 @@ def fetch_aqi(
     target_datetime: datetime | None = None
 ):
 
-    if not AQI_API_KEY:
+    if not API_KEY:
 
         raise ValueError(
-            "AQI_API_KEY missing"
+            "API_KEY missing"
         )
 
 
     params = {
         "lat": city["latitude"],
         "lon": city["longitude"],
-        "appid": AQI_API_KEY
+        "appid": API_KEY
     }
 
 
