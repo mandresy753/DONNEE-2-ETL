@@ -3,14 +3,16 @@ import logging
 import os
 import sys
 import uuid
-
 from datetime import datetime, timezone
 
 import psycopg2
-from psycopg2.extras import execute_values
 from dotenv import load_dotenv
+from psycopg2.extras import execute_values
 
 from scripts.extract.config import CLEAN_DIR
+
+# 1. CORRECTION : Charger le .env dès le départ, pas au milieu du script
+load_dotenv()
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s"
@@ -38,9 +40,7 @@ REQUIRED_COLUMNS = [
 
 
 def get_connection():
-    load_dotenv()
     db_url = os.getenv("NEON_DB_URL")
-
     if not db_url:
         raise Exception("NEON_DB_URL missing")
     return psycopg2.connect(db_url)
@@ -78,7 +78,6 @@ def parse_timestamp(value):
 
 def build_date(row):
     dt = parse_timestamp(row["timestamp_utc"])
-
     return (
         int(dt.strftime("%Y%m%d")),
         dt.date(),
@@ -112,7 +111,6 @@ def load_dim_date(conn, rows):
             """,
             values,
         )
-
     conn.commit()
     return dates
 
@@ -128,24 +126,29 @@ def load_dim_location(conn, rows):
             to_float(row["longitude"]),
         )
 
+    # 2. CORRECTION CRITIQUE : execute_values avec RETURNING + ON CONFLICT a un comportement instable.
+    # Pour s'assurer que TOUTES les lignes (nouvelles ET existantes) retournent leur location_id,
+    # on utilise l'extension de requête psycopg2.extras.execute_values avec un curseur classique,
+    # mais exécuté de manière à pouvoir fetcher le résultat correctement.
+
+    # Note : PostgreSQL ne RETURNE PAS les lignes si le ON CONFLICT ne fait RIEN.
+    # Votre "DO UPDATE SET" règle ce problème, mais execute_values nécessite de récupérer le résultat via la fonction elle-même.
+
+    query = """
+        INSERT INTO dim_location (city, country, latitude, longitude)
+        VALUES %s
+        ON CONFLICT(city, country)
+        DO UPDATE SET latitude = EXCLUDED.latitude, longitude = EXCLUDED.longitude
+        RETURNING location_id, city, country
+    """
+
     with conn.cursor() as cursor:
-        execute_values(
-            cursor,
-            """
-            INSERT INTO dim_location (city, country, latitude, longitude)
-            VALUES %s
-            ON CONFLICT(city,country)
-            DO UPDATE SET latitude = EXCLUDED.latitude, longitude = EXCLUDED.longitude
-            RETURNING location_id, city, country
-            """,
-            list(locations.values()),
-            fetch=True,
-        )
-        result = cursor.fetchall()
+        # execute_values retourne directement les résultats si fetch=True sur les versions récentes,
+        # mais pour la compatibilité descendante et éviter le bug du fetchall vide :
+        results = execute_values(cursor, query, list(locations.values()), fetch=True)
 
     conn.commit()
-
-    return {(city, country): location_id for location_id, city, country in result}
+    return {(city, country): location_id for location_id, city, country in results}
 
 
 def load_fact_air_quality(conn, rows, location_ids):
@@ -179,7 +182,7 @@ def load_fact_air_quality(conn, rows, location_ids):
                 to_float(row["no2"]),
                 to_float(row["o3"]),
                 to_float(row["so2"]),
-                to_float(row["pm25"]),
+                to_float(row["pm25"]),  # Attention à la cohérence avec le nom de colonne cible pm2_5
                 to_float(row["pm10"]),
                 to_float(row["nh3"]),
             )
