@@ -86,7 +86,7 @@ def build_date(row):
         dt.month,
         dt.strftime("%B"),
         dt.day,
-        dt.weekday(),
+        dt.isoweekday(),
         dt.strftime("%A"),
         dt.weekday() >= 5,
     )
