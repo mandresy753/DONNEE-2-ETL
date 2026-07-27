@@ -35,7 +35,9 @@ def save_raw_json(city: dict, data: dict, moment: datetime):
                 "latitude": city["latitude"],
                 "longitude": city["longitude"],
             },
-            "timestamp": moment.astimezone(timezone.utc).isoformat(),
+            "timestamp": moment.astimezone(timezone.utc).isoformat(
+            timespec="microseconds"
+            ),
         }
     )
 
