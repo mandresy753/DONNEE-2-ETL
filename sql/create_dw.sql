@@ -2,14 +2,47 @@ CREATE TABLE dim_date (
                           date_id         INT PRIMARY KEY,
                           full_date       DATE NOT NULL UNIQUE,
                           year            SMALLINT NOT NULL,
-                          quarter         SMALLINT NOT NULL,
-                          month           SMALLINT NOT NULL,
+                          quarter         SMALLINT NOT NULL CHECK (quarter BETWEEN 1 AND 4),
+                          month           SMALLINT NOT NULL CHECK (month BETWEEN 1 AND 12),
                           month_name      VARCHAR(20) NOT NULL,
-                          day             SMALLINT NOT NULL,
-                          day_of_week     SMALLINT NOT NULL,
+                          day             SMALLINT NOT NULL CHECK (day BETWEEN 1 AND 31),
+                          day_of_week     SMALLINT NOT NULL CHECK (day_of_week BETWEEN 1 AND 7),
                           day_name        VARCHAR(20) NOT NULL,
                           is_weekend      BOOLEAN NOT NULL
 );
+
+CREATE TABLE dim_time (
+                          hour            SMALLINT PRIMARY KEY CHECK (hour BETWEEN 0 AND 23),
+                          period          VARCHAR(20) NOT NULL
+);
+
+INSERT INTO dim_time (hour, period)
+VALUES
+    (0, 'Nuit'),
+    (1, 'Nuit'),
+    (2, 'Nuit'),
+    (3, 'Nuit'),
+    (4, 'Nuit'),
+    (5, 'Matin'),
+    (6, 'Matin'),
+    (7, 'Matin'),
+    (8, 'Matin'),
+    (9, 'Matin'),
+    (10, 'Matin'),
+    (11, 'Matin'),
+    (12, 'Après-midi'),
+    (13, 'Après-midi'),
+    (14, 'Après-midi'),
+    (15, 'Après-midi'),
+    (16, 'Après-midi'),
+    (17, 'Soir'),
+    (18, 'Soir'),
+    (19, 'Soir'),
+    (20, 'Soir'),
+    (21, 'Nuit'),
+    (22, 'Nuit'),
+    (23, 'Nuit')
+    ON CONFLICT (hour) DO NOTHING;
 
 CREATE TABLE dim_location (
                               location_id     SERIAL PRIMARY KEY,
@@ -44,8 +77,7 @@ CREATE TABLE fact_air_quality_hourly (
                                          extraction_id           UUID NOT NULL,
                                          extraction_timestamp    TIMESTAMPTZ NOT NULL,
                                          date_id                 INT NOT NULL,
-                                         hour                    SMALLINT NOT NULL
-                                             CHECK (hour BETWEEN 0 AND 23),
+                                         hour                    SMALLINT NOT NULL,
     location_id             INT NOT NULL,
     measurement_timestamp   TIMESTAMPTZ NOT NULL,
     aqi                     SMALLINT,
@@ -67,6 +99,9 @@ CREATE TABLE fact_air_quality_hourly (
     FOREIGN KEY (date_id)
         REFERENCES dim_date(date_id),
 
+    FOREIGN KEY (hour)
+        REFERENCES dim_time(hour),
+
     FOREIGN KEY (location_id)
         REFERENCES dim_location(location_id),
 
@@ -83,6 +118,9 @@ CREATE TABLE fact_air_quality_hourly (
 
 CREATE INDEX idx_fact_air_quality_date
     ON fact_air_quality_hourly(date_id);
+
+CREATE INDEX idx_fact_air_quality_hour
+    ON fact_air_quality_hourly(hour);
 
 CREATE INDEX idx_fact_air_quality_location
     ON fact_air_quality_hourly(location_id);
