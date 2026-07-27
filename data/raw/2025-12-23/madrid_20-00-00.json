@@ -1,0 +1,27 @@
+{
+  "list": [
+    {
+      "main": {
+        "aqi": 1
+      },
+      "components": {
+        "co": 123.22,
+        "no": 0,
+        "no2": 4.26,
+        "o3": 33.77,
+        "so2": 0.12,
+        "pm2_5": 1.21,
+        "pm10": 1.64,
+        "nh3": 1.35
+      },
+      "dt": 1766520000
+    }
+  ],
+  "city": "Madrid",
+  "country": "ES",
+  "coordinates": {
+    "latitude": 40.4168,
+    "longitude": -3.7038
+  },
+  "timestamp": "2025-12-23T20:00:00+00:00"
+}

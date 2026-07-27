@@ -1,0 +1,27 @@
+{
+  "list": [
+    {
+      "main": {
+        "aqi": 1
+      },
+      "components": {
+        "co": 207.7,
+        "no": 0.02,
+        "no2": 12.35,
+        "o3": 44.49,
+        "so2": 4.12,
+        "pm2_5": 9.82,
+        "pm10": 11.91,
+        "nh3": 1.31
+      },
+      "dt": 1767772800
+    }
+  ],
+  "city": "Berlin",
+  "country": "DE",
+  "coordinates": {
+    "latitude": 52.52,
+    "longitude": 13.405
+  },
+  "timestamp": "2026-01-07T08:00:00+00:00"
+}

@@ -1,0 +1,27 @@
+{
+  "list": [
+    {
+      "main": {
+        "aqi": 1
+      },
+      "components": {
+        "co": 182.46,
+        "no": 0,
+        "no2": 7.95,
+        "o3": 54.87,
+        "so2": 1.15,
+        "pm2_5": 6.82,
+        "pm10": 8.01,
+        "nh3": 1.13
+      },
+      "dt": 1767643200
+    }
+  ],
+  "city": "Paris",
+  "country": "FR",
+  "coordinates": {
+    "latitude": 48.8566,
+    "longitude": 2.3522
+  },
+  "timestamp": "2026-01-05T20:00:00+00:00"
+}

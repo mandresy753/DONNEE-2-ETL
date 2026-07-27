@@ -1,0 +1,27 @@
+{
+  "list": [
+    {
+      "main": {
+        "aqi": 2
+      },
+      "components": {
+        "co": 140.42,
+        "no": 0,
+        "no2": 0.46,
+        "o3": 76.18,
+        "so2": 0.2,
+        "pm2_5": 5.42,
+        "pm10": 6.58,
+        "nh3": 0
+      },
+      "dt": 1765915200
+    }
+  ],
+  "city": "Rome",
+  "country": "IT",
+  "coordinates": {
+    "latitude": 41.9028,
+    "longitude": 12.4964
+  },
+  "timestamp": "2025-12-16T20:00:00+00:00"
+}

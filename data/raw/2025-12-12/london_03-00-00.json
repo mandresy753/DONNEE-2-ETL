@@ -1,0 +1,27 @@
+{
+  "list": [
+    {
+      "main": {
+        "aqi": 1
+      },
+      "components": {
+        "co": 148.99,
+        "no": 0,
+        "no2": 6.81,
+        "o3": 47.03,
+        "so2": 1.95,
+        "pm2_5": 1.25,
+        "pm10": 2.4,
+        "nh3": 0.56
+      },
+      "dt": 1765508400
+    }
+  ],
+  "city": "London",
+  "country": "GB",
+  "coordinates": {
+    "latitude": 51.5074,
+    "longitude": -0.1278
+  },
+  "timestamp": "2025-12-12T03:00:00+00:00"
+}

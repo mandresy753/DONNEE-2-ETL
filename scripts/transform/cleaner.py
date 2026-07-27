@@ -18,7 +18,7 @@ NUMERIC_COLUMNS = [
 
 def clean_dataframe(df):
     df["timestamp_utc"] = pd.to_datetime(
-        df["timestamp_utc"], errors="coerce", utc=True
+        df["timestamp_utc"], errors="coerce", utc=True, format="ISO8601"
     )
 
     df = df.dropna(subset=["city", "timestamp_utc"])
