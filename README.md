@@ -1,78 +1,116 @@
-# ETL Qualité de l'air
+# Stockage — Qualité de l'air
 
-Pipeline ETL (extract → transform → load) qui collecte la qualité de l'air
-(OpenWeatherMap Air Pollution API) pour 5 villes et alimente un entrepôt de
-données en étoile sur Postgres (Neon).
+## Villes couvertes
 
-## Structure
+| Ville | Pays | Latitude | Longitude |
+|---|---|---|---|
+| Paris | FR | 48.8566 | 2.3522 |
+| London | GB | 51.5074 | -0.1278 |
+| Berlin | DE | 52.5200 | 13.4050 |
+| Madrid | ES | 40.4168 | -3.7038 |
+| Rome | IT | 41.9028 | 12.4964 |
 
-```
-scripts/
-  extract/     extraction "live" (extract.py) et historique (backfill.py)
-  transform/   nettoyage, validation, écriture du CSV propre
-  load/        chargement dans le data warehouse (dim_date, dim_location, fact_air_quality_hourly)
-data/
-  raw/         data lake : tous les JSON bruts, jamais déplacés ni supprimés
-  clean/       aqi_clean.csv, l'intégralité de l'historique nettoyé
-sql/
-  create_dw.sql  schéma du data warehouse
-.github/workflows/
-  etl_hourly.yml   extract → transform → load, toutes les heures à la 7e minute
-  backfill.yml     backfill manuel (workflow_dispatch), 3 mois d'historique par défaut
-```
+(source : `data/cities.json`)
 
-## Configuration
+## `data/raw/` — data lake
 
-1. Copier `.env.example` en `.env` et renseigner `API_KEY` (OpenWeatherMap) et
-   `NEON_DB_URL` (chaîne de connexion Postgres Neon).
-2. `pip install -r requirements.txt`
-3. Créer le schéma : exécuter `sql/create_dw.sql` sur la base Neon.
+Un fichier JSON par ville et par heure, réponse brute de l'API OpenWeatherMap
+Air Pollution, jamais modifié ni supprimé. Organisé par dossier de date :
+`data/raw/AAAA-MM-JJ/<ville>_HH-00-00.json`.
 
-## Utilisation locale
-
-Toutes les commandes se lancent **depuis la racine du dépôt** (import en
-package Python) :
+**Règle d'immutabilité** : aucun script ne modifie ni ne supprime jamais un
+fichier de `data/raw/` après son écriture (`transform.py` ne fait que le
+lire). `data/clean/aqi_clean.csv` est entièrement reconstructible depuis
+`data/raw/` à tout moment :
 
 ```bash
-python -m scripts.extract.extract       # extraction live (5 villes, instant t)
-python -m scripts.extract.backfill      # backfill des 3 derniers mois (historique)
-python -m scripts.transform.transform   # nettoyage + validation + CSV
-python -m scripts.load.load             # chargement dans le data warehouse
+rm data/clean/aqi_clean.csv
+python -m scripts.transform.transform
 ```
 
-Le backfill interroge l'endpoint `air_pollution/history` par tranches de
-15 jours (au lieu d'une requête par heure), ce qui limite le nombre d'appels
-API. Chaque lecture horaire est éclatée en un fichier JSON individuel, au
-même format que l'extraction live, pour que `transform.py` n'ait pas à
-distinguer les deux sources.
+## `data/clean/aqi_clean.csv` — fichier propre
 
-`data/raw/` est le data lake : `transform.py` ne déplace ni ne supprime
-jamais aucun fichier qui s'y trouve. À chaque run, il relit tout `data/raw/`
-et reconstruit `data/clean/aqi_clean.csv` avec l'intégralité de l'historique
-nettoyé. `load.py` fait un upsert (`ON CONFLICT ... DO UPDATE`), donc
-recharger tout l'historique à chaque run est sans risque — juste un peu plus
-de calcul, largement absorbable à l'échelle de ce projet (5 villes, lecture
-horaire).
+Une ligne = une mesure horaire pour une ville. Régénéré en entier à chaque
+run à partir de tout `data/raw/`.
 
-## GitHub Actions
+| Colonne | Unité / format | Description |
+|---|---|---|
+| `city` | texte | Nom de la ville |
+| `country` | code ISO 2 lettres | Pays |
+| `latitude`, `longitude` | degrés décimaux | Coordonnées de la ville |
+| `timestamp_utc` | ISO 8601, UTC | Horodatage de la mesure |
+| `aqi` | entier, 1 à 5 | Indice de qualité de l'air OpenWeatherMap (1=Bon … 5=Très mauvais) |
+| `co` | µg/m³ | Monoxyde de carbone |
+| `no` | µg/m³ | Monoxyde d'azote |
+| `no2` | µg/m³ | Dioxyde d'azote |
+| `o3` | µg/m³ | Ozone |
+| `so2` | µg/m³ | Dioxyde de soufre |
+| `pm25` | µg/m³ | Particules fines PM2.5 |
+| `pm10` | µg/m³ | Particules PM10 |
+| `nh3` | µg/m³ | Ammoniac |
 
-Ajouter deux secrets dans **Settings > Secrets and variables > Actions** :
-`API_KEY` et `NEON_DB_URL`.
+Validation (`scripts/transform/validator.py`) : `aqi` doit être entre 1 et 5,
+tous les polluants doivent être ≥ 0 ; les lignes invalides sont filtrées
+(pas de rejet du batch entier).
 
-- `etl_hourly.yml` tourne automatiquement chaque heure (cron `7 * * * *`).
-- `backfill.yml` se lance manuellement depuis l'onglet Actions (bouton
-  "Run workflow"), avec un paramètre optionnel `months` (3 par défaut).
+## Période couverte et trous connus
 
-Les deux workflows committent `data/raw/` et `data/clean/aqi_clean.csv` dans
-le repo juste après l'étape `transform` (avant `load`), avec le message
-`[skip ci]` pour ne pas redéclencher de workflow. `aqi_clean.csv` contient
-l'intégralité de l'historique nettoyé à chaque commit (pas juste le dernier
-lot). Ça implique un commit automatique par exécution (donc environ un par
-heure), et un repo qui grossit avec le temps puisque chaque fichier JSON
-brut est versionné individuellement dans `data/raw/` — à surveiller si le
-clone devient volumineux.
+- **Période** : 2026-01-28 15:00 UTC → aujourd'hui (mise à jour horaire
+  automatique), soit plus de 6 mois d'historique.
+- **Trous connus** (heures manquantes, mêmes pour les 5 villes sauf mention
+  contraire) — dus à des échecs ponctuels du run horaire (API indisponible,
+  run GitHub Actions en échec/sauté) :
 
-Note : les workflows planifiés (`schedule`) de GitHub Actions peuvent être
-retardés en cas de forte charge sur la plateforme, et sont automatiquement
-désactivés si le dépôt reste inactif (aucun commit) pendant 60 jours — il
-faut alors les réactiver manuellement depuis l'onglet Actions.
+  | Période sans données | Durée | Villes concernées |
+  |---|---|---|
+  | 2026-02-15 01:00 → 2026-02-16 00:00 | 24h | Toutes |
+  | 2026-02-21 01:00 → 2026-02-23 00:00 | 48h | Toutes |
+  | 2026-03-01 01:00 → 2026-03-02 00:00 | 24h | Toutes sauf Madrid |
+  | 2026-03-04 01:00 → 2026-03-05 00:00 | 24h | Toutes |
+  | 2026-05-11 01:00 → 2026-05-12 00:00 | 24h | Toutes |
+  | 2026-05-19 01:00 → 2026-05-20 00:00 | 24h | Toutes |
+  | 2026-07-10 01:00 → 2026-07-11 00:00 | 24h | Toutes |
+  | 2026-07-29 19:00 (1h) | 1h | Toutes |
+
+  Total : 193 heures manquantes par ville (169 pour Madrid, qui a été
+  extraite avec succès le 2026-03-01 contrairement aux 4 autres villes).
+
+  Ces trous ont été vérifiés au niveau de `data/raw/` : les fichiers JSON
+  correspondants sont absents (échec du run d'extraction horaire), il ne
+  s'agit pas d'une perte de données lors de la transformation — le nombre
+  de fichiers bruts (21 264) correspond exactement au nombre de lignes du
+  CSV propre.
+
+## Cohérence attendue
+
+**Règle** : nombre de lignes de `fact_air_quality_hourly` ≈ nombre de villes
+× nombre d'heures couvertes par la période.
+
+- Période : 2026-01-28 15:00 UTC → 2026-08-01 15:00 UTC = **4 441 heures**
+- Attendu : 4 441 × 5 villes = **22 205 lignes**
+- Réel (au 2026-08-01) : **21 264 lignes**
+  (Berlin/London/Paris/Rome : 4 248 chacune ; Madrid : 4 272)
+- **Écart : 941 lignes**, entièrement expliqué par les trous ci-dessus
+  (193 h × 4 villes + 169 h × 1 ville = 941), plus aucune autre perte —
+  la validation (`validator.py`) n'a rejeté aucune ligne sur cette période
+  (aucun `aqi` hors [1,5] ni polluant négatif rencontré à ce jour) et
+  aucun doublon d'heure n'a été observé par ville.
+
+## Schéma du data warehouse (Neon Postgres, schéma en étoile)
+
+Voir `sql/create_dw.sql` pour le DDL complet.
+
+- **`dim_date`** (`date_id` PK) : date calendaire, année, trimestre, mois, jour, jour de semaine, week-end.
+- **`dim_time`** (`hour` PK) : heure 0-23 → période (Nuit / Matin / Après-midi / Soir).
+- **`dim_location`** (`location_id` PK) : ville, pays, latitude, longitude.
+- **`dim_aqi_category`** (`aqi` PK) : libellé et description de chaque niveau AQI (1 à 5).
+- **`fact_air_quality_hourly`** (PK composite `location_id` + `measurement_timestamp`) : une ligne par mesure horaire, clés étrangères vers les 4 dimensions ci-dessus, colonnes de polluants (`co`, `no`, `no2`, `o3`, `so2`, `pm2_5`, `pm10`, `nh3`).
+
+Chargement rejouable via `python -m scripts.load.load` (upsert sur les 3 tables).
+
+## Connexion à la base
+
+- Moteur : PostgreSQL (Neon, serverless)
+- Variable d'environnement attendue : `NEON_DB_URL` (chaîne de connexion complète, ex. `postgresql://user:password@host/dbname?sslmode=require`)
+- À définir dans `.env` en local (voir `.env.example`), ou dans les secrets GitHub Actions (`Settings > Secrets and variables > Actions`) pour l'exécution automatisée.
+- Créer le schéma avant le premier chargement : exécuter `sql/create_dw.sql` sur la base cible.
